@@ -104,7 +104,7 @@ func setCountersFromPDU(
 		partsMyOid := strings.Split(myoid, ".")
 		origOID := strings.Join(partsMyOid[0:len(partsMyOid)-1], ".")
 
-		setFunc(intVal, index, reverseMap(strNameToOidMap)[origOID])
+		setFunc(intVal, index, reverseMap(StrNameToOidMap)[origOID])
 	}
 
 	return nil

@@ -21,7 +21,7 @@ var (
 	ErrExpectOctetString        = errors.New("this value must be octet string")
 )
 
-var strNameToOidMap = map[string]string{
+var StrNameToOidMap = map[string]string{
 	"ifAlias":           "1.3.6.1.2.1.31.1.1.1.18",
 	"ifIndex":           "1.3.6.1.2.1.2.2.1.1",
 	"ifDescr":           "1.3.6.1.2.1.2.2.1.2",
@@ -123,7 +123,7 @@ func New(device *models.Device, logger *zap.Logger) *Client {
 // it'll set initial map parameters such us device hostname, sysname, etc.
 func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(strNameToOidMap["ifIndex"])
+		pdu, err := c.walkOid(StrNameToOidMap["ifIndex"])
 		if err != nil {
 			return err
 		}
@@ -152,7 +152,7 @@ func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 // SetIfName sets interface names for the snmp interfaces map
 func (c *Client) SetIfName(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(strNameToOidMap["ifDescr"])
+		pdu, err := c.walkOid(StrNameToOidMap["ifDescr"])
 		if err != nil {
 			return err
 		}
@@ -166,7 +166,7 @@ func (c *Client) SetIfName(decorator DecorateFunc) DecorateFunc {
 // SetMacAddress sets interface mac for the snmp interfaces map
 func (c *Client) SetMacAddress(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(strNameToOidMap["ifPhysAddress"])
+		pdu, err := c.walkOid(StrNameToOidMap["ifPhysAddress"])
 		if err != nil {
 			return err
 		}
@@ -180,7 +180,7 @@ func (c *Client) SetMacAddress(decorator DecorateFunc) DecorateFunc {
 // SetIfAlias sets interface aliases for the snmp interfaces map
 func (c *Client) SetIfAlias(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(strNameToOidMap["ifAlias"])
+		pdu, err := c.walkOid(StrNameToOidMap["ifAlias"])
 		if err != nil {
 			return err
 		}
@@ -194,7 +194,7 @@ func (c *Client) SetIfAlias(decorator DecorateFunc) DecorateFunc {
 // SetIfAdminStatus
 func (c *Client) SetIfAdminStatus(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(strNameToOidMap["ifAdminStatus"])
+		pdu, err := c.walkOid(StrNameToOidMap["ifAdminStatus"])
 		if err != nil {
 			return err
 		}
@@ -208,7 +208,7 @@ func (c *Client) SetIfAdminStatus(decorator DecorateFunc) DecorateFunc {
 // SetIfOperStatus
 func (c *Client) SetIfOperStatus(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(strNameToOidMap["ifOperStatus"])
+		pdu, err := c.walkOid(StrNameToOidMap["ifOperStatus"])
 		if err != nil {
 			return err
 		}
@@ -222,7 +222,7 @@ func (c *Client) SetIfOperStatus(decorator DecorateFunc) DecorateFunc {
 // SetSpeed
 func (c *Client) SetSpeed(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(strNameToOidMap["ifSpeed"])
+		pdu, err := c.walkOid(StrNameToOidMap["ifSpeed"])
 		if err != nil {
 			return err
 		}
@@ -236,11 +236,11 @@ func (c *Client) SetSpeed(decorator DecorateFunc) DecorateFunc {
 // SetMtu
 func (c *Client) SetMtu(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(strNameToOidMap["ifMtu"])
+		pdu, err := c.walkOid(StrNameToOidMap["ifMtu"])
 		if err != nil {
 			return err
 		}
-		if err := setIntFromPDU(pdu, metricsMap.SetMtu); err != nil {
+		if err := setInt64FromPDU(pdu, metricsMap.SetMtu); err != nil {
 			return err
 		}
 		return decorator(metricsMap)
@@ -251,18 +251,18 @@ func (c *Client) SetMtu(decorator DecorateFunc) DecorateFunc {
 func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
 		pdu, err := c.walkOid(
-			strNameToOidMap["ifInOctets"],
-			strNameToOidMap["ifInUcastPkts"],
-			strNameToOidMap["ifInNUcastPkts"],
-			strNameToOidMap["ifInDiscards"],
-			strNameToOidMap["ifInErrors"],
-			strNameToOidMap["ifInUnknownProtos"],
-			strNameToOidMap["ifOutOctets"],
-			strNameToOidMap["ifOutUcastPkts"],
-			strNameToOidMap["ifOutNUcastPkts"],
-			strNameToOidMap["ifOutDiscards"],
-			strNameToOidMap["ifOutErrors"],
-			strNameToOidMap["ifOutQLen"],
+			StrNameToOidMap["ifInOctets"],
+			StrNameToOidMap["ifInUcastPkts"],
+			StrNameToOidMap["ifInNUcastPkts"],
+			StrNameToOidMap["ifInDiscards"],
+			StrNameToOidMap["ifInErrors"],
+			StrNameToOidMap["ifInUnknownProtos"],
+			StrNameToOidMap["ifOutOctets"],
+			StrNameToOidMap["ifOutUcastPkts"],
+			StrNameToOidMap["ifOutNUcastPkts"],
+			StrNameToOidMap["ifOutDiscards"],
+			StrNameToOidMap["ifOutErrors"],
+			StrNameToOidMap["ifOutQLen"],
 		)
 		if err != nil {
 			return err

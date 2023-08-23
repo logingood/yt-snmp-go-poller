@@ -30,7 +30,7 @@ func New(
 	numWorkers int,
 ) *Queue {
 	logger.Info("created new queue")
-	jobChan := make(chan *models.Device)
+	jobChan := make(chan *models.Device, 100)
 	return &Queue{
 		logger:     logger,
 		dbClient:   dbClient,

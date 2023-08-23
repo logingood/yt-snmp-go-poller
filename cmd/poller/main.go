@@ -7,11 +7,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/logingood/yt-snmp-go-poller/devices/sql"
 	"github.com/logingood/yt-snmp-go-poller/internal/lgr"
 	"github.com/logingood/yt-snmp-go-poller/models"
+	"github.com/logingood/yt-snmp-go-poller/storer/chouse"
 	"github.com/logingood/yt-snmp-go-poller/worker"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -44,9 +46,32 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	clickDbName := os.Getenv("CLICKHOUSE_DB")
+	clickTableName := os.Getenv("CLICKHOUSE_TABLENAME")
+
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%s", os.Getenv("CLICKHOUSE_ADDR"), os.Getenv("CLICKHOUSE_PORT"))},
+		Auth: clickhouse.Auth{
+			Database: clickDbName,
+			//		Username: os.Getenv("CLICKHOUSE_USERNAME"),
+			//		Password: os.Getenv("CLICKHOUSE_PASSWORD"),
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+	})
+
+	storerGroup, sctx := errgroup.WithContext(ctx)
+	storer := chouse.New(logger, conn, 100, clickDbName, clickTableName, 5)
+	if err := storer.InitDb(sctx); err != nil {
+		logger.Error("error init db", zap.Error(err))
+	}
+	storer.StartQueue(sctx, storerGroup)
+
 	workerGroup, wctx := errgroup.WithContext(ctx)
 	q := worker.New(logger, dbClient, getInterval(logger), func(snmpMap *models.SnmpInterfaceMetrics) error {
-		logger.Info("device map", zap.Any("map", snmpMap))
+		//	logger.Info("device map", zap.Any("map", snmpMap))
+		storer.Write(snmpMap)
 		return nil
 	}, workerGroup, getWorkersNum(logger))
 	q.StartWorkerPool(wctx)

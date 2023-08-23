@@ -8,18 +8,18 @@ import (
 // SnmpInterface index is 1.3.6.1.2.1.2.2.1.1. We use index as a key of the
 // map SnmpInterfaceMetrics.
 type SnmpInterface struct {
-	IfAlias     string        // 1.3.6.1.2.1.31.1.1.1.18
-	IfName      string        // 1.3.6.1.2.1.2.2.1.2
-	IfType      int           // 1.3.6.1.2.1.2.2.1.3
-	Mtu         int           // 1.3.6.1.2.1.2.2.1.4
-	Speed       int64         // 1.3.6.1.2.1.2.2.1.5
-	MacAddress  string        // 1.3.6.1.2.1.2.2.1.6
-	AdminStatus bool          // 1.3.6.1.2.1.2.2.1.7
-	OperStatus  bool          // 1.3.6.1.2.1.2.2.1.8
-	LastChange  time.Duration // .9
+	IfAlias     string        `ch:"if_alias" json:"if_alias"`         // 1.3.6.1.2.1.31.1.1.1.18
+	IfName      string        `ch:"if_name" json:"if_name"`           // 1.3.6.1.2.1.2.2.1.2
+	IfType      int32         `ch:"if_type" json:"if_type"`           // 1.3.6.1.2.1.2.2.1.3
+	Mtu         int64         `ch:"mtu" json:"mtu"`                   // 1.3.6.1.2.1.2.2.1.4
+	Speed       int64         `ch:"speed" json:"speed"`               // 1.3.6.1.2.1.2.2.1.5
+	MacAddress  string        `ch:"mac_address" json:"mac_address"`   // 1.3.6.1.2.1.2.2.1.6
+	AdminStatus bool          `ch:"admin_status" json:"admin_status"` // 1.3.6.1.2.1.2.2.1.7
+	OperStatus  bool          `ch:"oper_status" json:"oper_status"`   // 1.3.6.1.2.1.2.2.1.8
+	LastChange  time.Duration `ch:"last_change" json:"last_change"`   // .9
 
 	// Counters will be from .10 to .21
-	Counters map[string]*big.Int
+	Counters map[string]*big.Int `ch:"-" json:"counters"`
 }
 
 type SnmpInterfaceMetrics struct {
@@ -58,7 +58,7 @@ func (s *SnmpInterfaceMetrics) SetOperStatus(val bool, index int) {
 	s.CountersMap[index] = updateValue
 }
 
-func (s *SnmpInterfaceMetrics) SetMtu(val int, index int) {
+func (s *SnmpInterfaceMetrics) SetMtu(val int64, index int) {
 	updateValue := s.CountersMap[index]
 	updateValue.Mtu = val
 	s.CountersMap[index] = updateValue
