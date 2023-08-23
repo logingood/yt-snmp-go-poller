@@ -4,14 +4,17 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/logingood/yt-snmp-go-poller/devices/sql"
 	"github.com/logingood/yt-snmp-go-poller/internal/lgr"
 	"github.com/logingood/yt-snmp-go-poller/models"
-	"github.com/logingood/yt-snmp-go-poller/snmp"
+	"github.com/logingood/yt-snmp-go-poller/worker"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -38,33 +41,59 @@ func main() {
 
 	dbClient := sql.New(db, logger)
 
-	ctx := context.Background()
-	devices, err := dbClient.ListDevices(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	for _, dev := range devices {
-		s := snmp.New(&dev, logger)
+	workerGroup, wctx := errgroup.WithContext(ctx)
+	q := worker.New(logger, dbClient, getInterval(logger), func(snmpMap *models.SnmpInterfaceMetrics) error {
+		logger.Info("device map", zap.Any("map", snmpMap))
+		return nil
+	}, workerGroup, getWorkersNum(logger))
+	q.StartWorkerPool(wctx)
 
-		snmpMap := &models.SnmpInterfaceMetrics{}
+	group, qctx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		return q.StartDispatcher(qctx)
+	})
 
-		poller := snmp.Compose(
-			// do something with the device
-			func(snmpMap *models.SnmpInterfaceMetrics) error {
-				logger.Info("device map", zap.Any("map", snmpMap))
-				return nil
-			},
-			s.SetCounters,
-			s.SetIfName,
-			s.SetIfAlias,
-			s.SetMtu,
-			s.SetSpeed,
-			s.SetIfAdminStatus,
-			s.SetIfOperStatus,
-			s.SetMacAddress,
-			s.GetInterfacesMap, // always keep at the bottom
-		)
-		if err := poller(snmpMap); err != nil {
+	if err := group.Wait(); err != nil {
+		logger.Error("error occurred", zap.Error(err))
+	} else {
+		logger.Error("have a jolly day")
+	}
+}
+
+func getWorkersNum(logger *zap.Logger) int {
+	numOfWorkers := 0
+	numberOfWorkersStr := os.Getenv("WORKERS_NUM")
+	if numberOfWorkersStr == "" {
+		numOfWorkers = 10
+	} else {
+		var err error
+		numOfWorkers, err = strconv.Atoi(numberOfWorkersStr)
+		if err != nil {
+			logger.Fatal("number of workers must be a number", zap.Any("WORKERS_NUM", numberOfWorkersStr), zap.Error(err))
+			panic(err)
+		}
+	}
+
+	return numOfWorkers
+}
+
+func getInterval(logger *zap.Logger) time.Duration {
+	var interval time.Duration
+	intervalStr := os.Getenv("POLLING_INTERVAL_MINUTES")
+	if intervalStr == "" {
+		interval = time.Minute * 5
+	} else {
+		intervalInt, err := strconv.Atoi(intervalStr)
+		if err != nil {
+			logger.Fatal("interval minutes must be a number", zap.Any("POLLING_INTERVAL_MINUTES", intervalStr), zap.Error(err))
 			panic(err)
 		}
 
+		interval = time.Minute * time.Duration(intervalInt)
 	}
+
+	return interval
 }

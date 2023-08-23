@@ -7,6 +7,7 @@ require (
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/k-sone/snmpgo v3.2.0+incompatible
 	go.uber.org/zap v1.25.0
+	golang.org/x/sync v0.3.0
 )
 
 require (
