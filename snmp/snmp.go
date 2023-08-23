@@ -128,8 +128,12 @@ func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 			return err
 		}
 
-		metricsMap.Hostname = *c.device.Hostname
-		metricsMap.SysName = *c.device.SysName
+		if c.device != nil && c.device.Hostname != nil {
+			metricsMap.Hostname = *c.device.Hostname
+		}
+		if c.device != nil && c.device.SysName != nil {
+			metricsMap.SysName = *c.device.SysName
+		}
 		metricsMap.CountersMap = make(map[int]models.SnmpInterface)
 
 		for _, val := range pdu.VarBinds() {

@@ -82,13 +82,16 @@ func (c *ClickhouseClient) insert(metrics []*models.SnmpInterfaceMetrics) error 
 		for _, counters := range metric.CountersMap {
 
 			for k := range snmp.StrNameToOidMap {
+				if counters.Counters == nil {
+					counters.Counters = map[string]*big.Int{}
+				}
 				if counters.Counters[k] == nil {
 					bigInt := big.NewInt(0)
 					counters.Counters[k] = bigInt
 				}
 			}
 			batch.Append(
-				time.Now().UTC().UnixMilli(),
+				time.Now().UTC().Unix(),
 				metric.SysName,
 				metric.Hostname,
 				counters.IfAlias,
