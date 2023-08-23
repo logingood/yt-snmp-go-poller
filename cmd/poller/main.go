@@ -70,10 +70,9 @@ func main() {
 
 	workerGroup, wctx := errgroup.WithContext(ctx)
 	q := worker.New(logger, dbClient, getInterval(logger), func(snmpMap *models.SnmpInterfaceMetrics) error {
-		//	logger.Info("device map", zap.Any("map", snmpMap))
 		storer.Write(snmpMap)
 		return nil
-	}, workerGroup, getWorkersNum(logger))
+	}, workerGroup, getWorkersNum(logger), 100)
 	q.StartWorkerPool(wctx)
 
 	group, qctx := errgroup.WithContext(ctx)

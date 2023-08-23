@@ -16,27 +16,20 @@ type Queue struct {
 	dbClient   *sql.Client
 	jobChan    chan *models.Device
 	interval   time.Duration
-	storer     snmp.DecorateFunc
+	processor  snmp.DecorateFunc
 	eg         *errgroup.Group
 	numWorkers int
 }
 
-func New(
-	logger *zap.Logger,
-	dbClient *sql.Client,
-	interval time.Duration,
-	storer snmp.DecorateFunc,
-	eg *errgroup.Group,
-	numWorkers int,
-) *Queue {
+func New(logger *zap.Logger, dbClient *sql.Client, interval time.Duration, processor snmp.DecorateFunc, eg *errgroup.Group, numWorkers, queueLength int) *Queue {
 	logger.Info("created new queue")
-	jobChan := make(chan *models.Device, 100)
+	jobChan := make(chan *models.Device, queueLength)
 	return &Queue{
 		logger:     logger,
 		dbClient:   dbClient,
 		jobChan:    jobChan,
 		interval:   interval,
-		storer:     storer,
+		processor:  processor,
 		numWorkers: numWorkers,
 		eg:         eg,
 	}
@@ -59,6 +52,7 @@ func (q *Queue) StartDispatcher(ctx context.Context) error {
 			q.logger.Info("found devices", zap.Int("devices", len(devices)))
 			for _, dev := range devices {
 				dev := dev
+				q.logger.Info("enqueue", zap.Any("device", dev.Hostname))
 				q.jobChan <- &dev
 			}
 		case <-ctx.Done():
@@ -73,8 +67,10 @@ func (q *Queue) StartWorkerPool(ctx context.Context) error {
 	q.logger.Info("starting worker pool", zap.Any("workers", q.numWorkers))
 	for i := 0; i < q.numWorkers; i++ {
 		q.eg.Go(func() error {
-			if err := q.worker(ctx); err != nil {
-				return err
+			for job := range q.jobChan {
+				if err := q.worker(ctx, job); err != nil {
+					return err
+				}
 			}
 			return nil
 		})
@@ -83,13 +79,14 @@ func (q *Queue) StartWorkerPool(ctx context.Context) error {
 	return nil
 }
 
-func (q *Queue) worker(ctx context.Context) error {
+func (q *Queue) worker(ctx context.Context, job *models.Device) error {
 	q.logger.Info("starting a worker")
 	select {
 	case <-ctx.Done():
 		q.logger.Info("worker is shutting down")
 		return nil
-	case job := <-q.jobChan:
+	default:
+		q.logger.Info("received a job to process", zap.Any("device", job.Hostname))
 		q.process(job)
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -104,7 +101,7 @@ func (q *Queue) process(job *models.Device) error {
 
 	poller := snmp.Compose(
 		// do something with the device
-		q.storer,
+		q.processor,
 
 		// adding snmp properties and counters
 		s.SetCounters,

@@ -52,7 +52,7 @@ func (c *ClickhouseClient) StartQueue(ctx context.Context, errGroup *errgroup.Gr
 			c.logger.Info("appending metric", zap.Any("hostname", j.Hostname))
 			metrics = append(metrics, j)
 			if len(metrics) == c.flushBatchSize {
-				c.logger.Info("insert time", zap.Any("metrics", len(metrics)))
+				c.logger.Info("insert time", zap.Any("metrics number", len(metrics)))
 				if err := c.insert(metrics); err != nil {
 					c.logger.Error("error", zap.Error(err))
 					//return err
@@ -77,8 +77,6 @@ func (c *ClickhouseClient) insert(metrics []*models.SnmpInterfaceMetrics) error 
 	}
 
 	for _, metric := range metrics {
-		c.logger.Info("processing", zap.Any("metric", metric))
-
 		// TODO convert IP to []byte
 
 		for _, counters := range metric.CountersMap {
@@ -120,7 +118,7 @@ func (c *ClickhouseClient) insert(metrics []*models.SnmpInterfaceMetrics) error 
 	if err := batch.Send(); err != nil {
 		return err
 	}
-	c.logger.Info(fmt.Sprintf("sent successfully %d", zap.Int("metrics", len(metrics))))
+	c.logger.Info("sent successfully", zap.Int("metrics", len(metrics)))
 	return nil
 }
 
