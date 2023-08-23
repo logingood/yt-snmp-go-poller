@@ -53,8 +53,8 @@ func main() {
 		Addr: []string{fmt.Sprintf("%s:%s", os.Getenv("CLICKHOUSE_ADDR"), os.Getenv("CLICKHOUSE_PORT"))},
 		Auth: clickhouse.Auth{
 			Database: clickDbName,
-			//		Username: os.Getenv("CLICKHOUSE_USERNAME"),
-			//		Password: os.Getenv("CLICKHOUSE_PASSWORD"),
+			Username: os.Getenv("CLICKHOUSE_USERNAME"),
+			Password: os.Getenv("CLICKHOUSE_PASSWORD"),
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
