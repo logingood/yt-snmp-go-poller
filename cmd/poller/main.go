@@ -112,11 +112,11 @@ func getInterval(logger *zap.Logger) time.Duration {
 	} else {
 		intervalInt, err := strconv.Atoi(intervalStr)
 		if err != nil {
-			logger.Fatal("interval minutes must be a number", zap.Any("POLLING_INTERVAL_MINUTES", intervalStr), zap.Error(err))
+			logger.Fatal("interval minutes must be a number", zap.Any("POLLING_INTERVAL_SECONDS", intervalStr), zap.Error(err))
 			panic(err)
 		}
 
-		interval = time.Minute * time.Duration(intervalInt)
+		interval = time.Second * time.Duration(intervalInt)
 	}
 
 	return interval
