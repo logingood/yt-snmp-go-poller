@@ -106,9 +106,9 @@ func getWorkersNum(logger *zap.Logger) int {
 
 func getInterval(logger *zap.Logger) time.Duration {
 	var interval time.Duration
-	intervalStr := os.Getenv("POLLING_INTERVAL_MINUTES")
+	intervalStr := os.Getenv("POLLING_INTERVAL_SECONDS")
 	if intervalStr == "" {
-		interval = time.Minute * 5
+		interval = time.Second * 5
 	} else {
 		intervalInt, err := strconv.Atoi(intervalStr)
 		if err != nil {
