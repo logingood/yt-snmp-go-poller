@@ -62,7 +62,7 @@ func main() {
 	})
 
 	storerGroup, sctx := errgroup.WithContext(ctx)
-	storer := chouse.New(logger, conn, 1000, clickDbName, clickTableName, 10)
+	storer := chouse.New(logger, conn, 100, clickDbName, clickTableName, 1)
 	if err := storer.InitDb(sctx); err != nil {
 		logger.Error("error init db", zap.Error(err))
 	}
@@ -70,9 +70,8 @@ func main() {
 
 	workerGroup, wctx := errgroup.WithContext(ctx)
 	q := worker.New(logger, dbClient, getInterval(logger), func(snmpMap *models.SnmpInterfaceMetrics) error {
-		storer.Write(snmpMap)
-		return nil
-	}, workerGroup, getWorkersNum(logger), 1000)
+		return storer.Insert([]*models.SnmpInterfaceMetrics{snmpMap})
+	}, workerGroup, getWorkersNum(logger), getWorkersNum(logger))
 	q.StartWorkerPool(wctx)
 
 	group, qctx := errgroup.WithContext(ctx)

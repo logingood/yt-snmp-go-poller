@@ -26,6 +26,7 @@ type SnmpInterface struct {
 type SnmpInterfaceMetrics struct {
 	Lock        sync.Mutex
 	CountersMap map[int]SnmpInterface
+	Time        int64
 	SysName     string
 	Hostname    string
 }

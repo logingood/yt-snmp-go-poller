@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"time"
+	"os"
+	"strconv"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/logingood/yt-snmp-go-poller/models"
@@ -44,33 +45,49 @@ func (c *ClickhouseClient) enqueue(flow *models.SnmpInterfaceMetrics) {
 	c.queue <- flow
 }
 
-func (c *ClickhouseClient) StartQueue(ctx context.Context, errGroup *errgroup.Group) {
-	errGroup.Go(func() error {
-		metrics := []*models.SnmpInterfaceMetrics{}
-		for j := range c.queue {
-
-			c.logger.Info("appending metric to batch", zap.Any("hostname", j.Hostname), zap.Any("device", j.SysName))
-			metrics = append(metrics, j)
-			if len(metrics) == c.flushBatchSize {
-				c.logger.Info("insert the batch", zap.Any("metrics number", len(metrics)))
-				if err := c.insert(metrics); err != nil {
-					c.logger.Error("error", zap.Error(err))
-					//return err
-				}
-				metrics = nil
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-				// keep working
-			}
+func (c *ClickhouseClient) StartQueue(ctx context.Context, errGroup *errgroup.Group) error {
+	conStr := os.Getenv("CLICKHOUSE_CONCURRENCY")
+	concurrency := 10
+	if conStr != "" {
+		var err error
+		concurrency, err = strconv.Atoi(conStr)
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	c.logger.Info("starting worker pool", zap.Any("workers", concurrency))
+	for i := 0; i < concurrency; i++ {
+		errGroup.Go(func() error {
+			for job := range c.queue {
+				job := job
+				if err := c.worker(ctx, job); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	return nil
 }
 
-func (c *ClickhouseClient) insert(metrics []*models.SnmpInterfaceMetrics) error {
+func (c *ClickhouseClient) worker(ctx context.Context, job *models.SnmpInterfaceMetrics) error {
+	c.logger.Info("starting a clickhouse insert worker")
+	select {
+	case <-ctx.Done():
+		c.logger.Info("clickhouse worker is shutting down")
+		return nil
+	default:
+		c.logger.Info("clickhouse insert received a job to process", zap.Any("device", job.Hostname))
+		c.Insert([]*models.SnmpInterfaceMetrics{job})
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return nil
+	}
+}
+
+func (c *ClickhouseClient) Insert(metrics []*models.SnmpInterfaceMetrics) error {
 	batch, err := c.conn.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s.%s", c.dbName, c.tableName))
 	if err != nil {
 		return err
@@ -91,7 +108,7 @@ func (c *ClickhouseClient) insert(metrics []*models.SnmpInterfaceMetrics) error 
 				}
 			}
 			batch.Append(
-				time.Now().UTC().Unix(),
+				metric.Time,
 				metric.SysName,
 				metric.Hostname,
 				counters.IfAlias,

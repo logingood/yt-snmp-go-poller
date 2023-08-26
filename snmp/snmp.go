@@ -212,6 +212,7 @@ func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
 			c.logger.Error("counters bad error", zap.Error(err), zap.Any("device", c.device.SysName))
 			return err
 		}
+		metricsMap.Time = time.Now().UTC().Unix()
 
 		for _, val := range pdu {
 			myoid := val.Name

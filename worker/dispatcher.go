@@ -23,7 +23,7 @@ type Queue struct {
 
 func New(logger *zap.Logger, dbClient *sql.Client, interval time.Duration, processor snmp.DecorateFunc, eg *errgroup.Group, numWorkers, queueLength int) *Queue {
 	logger.Info("created new queue")
-	jobChan := make(chan *models.Device)
+	jobChan := make(chan *models.Device, queueLength)
 	return &Queue{
 		logger:     logger,
 		dbClient:   dbClient,
