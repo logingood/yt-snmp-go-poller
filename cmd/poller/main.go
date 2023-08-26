@@ -62,7 +62,7 @@ func main() {
 	})
 
 	storerGroup, sctx := errgroup.WithContext(ctx)
-	storer := chouse.New(logger, conn, 100, clickDbName, clickTableName, 10)
+	storer := chouse.New(logger, conn, 1000, clickDbName, clickTableName, 10)
 	if err := storer.InitDb(sctx); err != nil {
 		logger.Error("error init db", zap.Error(err))
 	}

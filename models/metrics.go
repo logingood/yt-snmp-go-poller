@@ -24,71 +24,56 @@ type SnmpInterface struct {
 }
 
 type SnmpInterfaceMetrics struct {
-	lock        sync.Mutex
+	Lock        sync.Mutex
 	CountersMap map[int]SnmpInterface
 	SysName     string
 	Hostname    string
 }
 
 func (s *SnmpInterfaceMetrics) SetIfName(val string, index int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	updateValue := s.CountersMap[index]
 	updateValue.IfName = val
 	s.CountersMap[index] = updateValue
 }
 
 func (s *SnmpInterfaceMetrics) SetIfAlias(val string, index int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	updateValue := s.CountersMap[index]
 	updateValue.IfAlias = val
 	s.CountersMap[index] = updateValue
 }
 
 func (s *SnmpInterfaceMetrics) SetMacAddress(val string, index int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+
 	updateValue := s.CountersMap[index]
 	updateValue.MacAddress = val
 	s.CountersMap[index] = updateValue
 }
 
 func (s *SnmpInterfaceMetrics) SetAdminStatus(val bool, index int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	updateValue := s.CountersMap[index]
 	updateValue.AdminStatus = val
 	s.CountersMap[index] = updateValue
 }
 
 func (s *SnmpInterfaceMetrics) SetOperStatus(val bool, index int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	updateValue := s.CountersMap[index]
 	updateValue.OperStatus = val
 	s.CountersMap[index] = updateValue
 }
 
 func (s *SnmpInterfaceMetrics) SetMtu(val int64, index int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	updateValue := s.CountersMap[index]
 	updateValue.Mtu = val
 	s.CountersMap[index] = updateValue
 }
 
 func (s *SnmpInterfaceMetrics) SetSpeed(val int64, index int) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	updateValue := s.CountersMap[index]
 	updateValue.Speed = val
 	s.CountersMap[index] = updateValue
 }
 
 func (s *SnmpInterfaceMetrics) SetCounters(val *big.Int, index int, coutner string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	updateValue := s.CountersMap[index]
 	if updateValue.Counters == nil {
 		updateValue.Counters = map[string]*big.Int{}

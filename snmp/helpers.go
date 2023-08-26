@@ -5,26 +5,22 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/k-sone/snmpgo"
+	"github.com/gosnmp/gosnmp"
 	"go.uber.org/zap"
 )
 
 // setStringFromPDU takes a pdu result as an input, checks for an expectedType
 // and and calls the setFunc
 func setStringFromPDU(
-	pdu snmpgo.Pdu,
+	pdu *gosnmp.SnmpPacket,
 	setFunc func(string, int),
 ) error {
-	for _, val := range pdu.VarBinds() {
-		myoid := val.Oid.String()
+	for _, val := range pdu.Variables {
+		myoid := val.Name
 		indexpos := strings.LastIndex(myoid, ".")
 		index, _ := strconv.Atoi(myoid[indexpos+1:])
-		if val.Variable.Type() != "OctetString" {
-			// sanity check
-			return ErrExpectOctetString
-		}
+		setFunc(string(val.Value.([]byte)), index)
 
-		setFunc(val.Variable.String(), index)
 	}
 
 	return nil
@@ -33,56 +29,14 @@ func setStringFromPDU(
 // setBoolFromPDU takes a pdu result as an input, checks for an expectedType
 // and and calls the setFunc
 func setBoolFromPDU(
-	pdu snmpgo.Pdu,
+	pdu *gosnmp.SnmpPacket,
 	setFunc func(bool, int),
 ) error {
-	for _, val := range pdu.VarBinds() {
-		myoid := val.Oid.String()
+	for _, val := range pdu.Variables {
+		myoid := val.Name
 		indexpos := strings.LastIndex(myoid, ".")
 		index, _ := strconv.Atoi(myoid[indexpos+1:])
-		setFunc(val.Variable.String() == "1", index)
-	}
-
-	return nil
-}
-
-// setInt64FromPDU takes a pdu result as an input, checks for an expectedType
-// and and calls the setFunc
-func setInt64FromPDU(
-	pdu snmpgo.Pdu,
-	setFunc func(int64, int),
-) error {
-	for _, val := range pdu.VarBinds() {
-		myoid := val.Oid.String()
-		indexpos := strings.LastIndex(myoid, ".")
-		index, _ := strconv.Atoi(myoid[indexpos+1:])
-
-		intVal, err := val.Variable.BigInt()
-		if err != nil {
-			return err
-		}
-		setFunc(intVal.Int64(), index)
-	}
-
-	return nil
-}
-
-// setIntFromPDU takes a pdu result as an input, checks for an expectedType
-// and and calls the setFunc
-func setIntFromPDU(
-	pdu snmpgo.Pdu,
-	setFunc func(int, int),
-) error {
-	for _, val := range pdu.VarBinds() {
-		myoid := val.Oid.String()
-		indexpos := strings.LastIndex(myoid, ".")
-		index, _ := strconv.Atoi(myoid[indexpos+1:])
-
-		intVal, err := val.Variable.BigInt()
-		if err != nil {
-			return err
-		}
-		setFunc(int(intVal.Int64()), index)
+		setFunc(string(val.Value.([]byte)) == "1", index)
 	}
 
 	return nil
@@ -90,20 +44,16 @@ func setIntFromPDU(
 
 // setCountersFromPDU
 func setCountersFromPDU(
-	pdu snmpgo.Pdu,
+	pdu *gosnmp.SnmpPacket,
 	setFunc func(*big.Int, int, string),
 ) error {
-	for _, val := range pdu.VarBinds() {
-		myoid := val.Oid.String()
+	for _, val := range pdu.Variables {
+		myoid := val.Name
 		indexpos := strings.LastIndex(myoid, ".")
 		index, _ := strconv.Atoi(myoid[indexpos+1:])
-		intVal, err := val.Variable.BigInt()
-		if err != nil {
-			return err
-		}
 		partsMyOid := strings.Split(myoid, ".")
 		origOID := strings.Join(partsMyOid[0:len(partsMyOid)-1], ".")
-
+		intVal := gosnmp.ToBigInt(val.Value)
 		setFunc(intVal, index, reverseMap(StrNameToOidMap)[origOID])
 	}
 
@@ -111,28 +61,21 @@ func setCountersFromPDU(
 }
 
 // walkOid walks the given oid for an snmp device
-func (c *Client) walkOid(oid string, otherOids ...string) (snmpgo.Pdu, error) {
+func (c *Client) walkOid(oid string, otherOids ...string) ([]gosnmp.SnmpPDU, error) {
 	inputOids := []string{oid}
 	inputOids = append(inputOids, otherOids...)
-	oids, err := snmpgo.NewOids(
-		inputOids,
-	)
-	if err != nil {
-		return nil, err
+
+	pdus := []gosnmp.SnmpPDU{}
+	for _, oid := range inputOids {
+		pdu, err := c.client.WalkAll(oid)
+		if err != nil {
+			c.logger.Error("bad response", zap.Error(err), zap.Any("device", *c.device.SysName), zap.Any("oid", oid), zap.Any("other oids", otherOids))
+			return nil, err
+		}
+		pdus = append(pdus, pdu...)
 	}
 
-	pdu, err := c.client.GetBulkWalk(oids, 0, 3)
-	if err != nil {
-		c.logger.Error("bad response", zap.Error(err), zap.Any("device", *c.device.SysName), zap.Any("oid", oid), zap.Any("other oids", otherOids))
-		return nil, err
-	}
-
-	if pdu.ErrorStatus() != snmpgo.NoError {
-		c.logger.Error("walk error", zap.Any("error", pdu.ErrorStatus()))
-		return nil, err
-	}
-
-	return pdu, nil
+	return pdus, nil
 }
 
 func reverseMap(m map[string]string) map[string]string {

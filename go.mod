@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.13.2
 	github.com/go-sql-driver/mysql v1.6.0
+	github.com/gosnmp/gosnmp v1.35.0
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/k-sone/snmpgo v3.2.0+incompatible
 	go.uber.org/zap v1.25.0

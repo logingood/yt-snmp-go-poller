@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/k-sone/snmpgo"
+	"github.com/gosnmp/gosnmp"
 	"github.com/logingood/yt-snmp-go-poller/models"
 	"go.uber.org/zap"
 )
@@ -23,40 +23,40 @@ var (
 )
 
 var StrNameToOidMap = map[string]string{
-	"ifAlias":       "1.3.6.1.2.1.31.1.1.1.18",
-	"ifIndex":       "1.3.6.1.2.1.2.2.1.1",
-	"ifDescr":       "1.3.6.1.2.1.2.2.1.2",
-	"ifType":        "1.3.6.1.2.1.2.2.1.3",
-	"ifMtu":         "1.3.6.1.2.1.2.2.1.4",
-	"ifSpeed":       "1.3.6.1.2.1.2.2.1.5",
-	"ifPhysAddress": "1.3.6.1.2.1.2.2.1.6",
-	"ifAdminStatus": "1.3.6.1.2.1.2.2.1.7",
-	"ifOperStatus":  "1.3.6.1.2.1.2.2.1.8",
-	"ifLastChange":  "1.3.6.1.2.1.2.2.1.9",
+	"ifAlias":       ".1.3.6.1.2.1.31.1.1.1.18",
+	"ifIndex":       ".1.3.6.1.2.1.2.2.1.1",
+	"ifDescr":       ".1.3.6.1.2.1.2.2.1.2",
+	"ifType":        ".1.3.6.1.2.1.2.2.1.3",
+	"ifMtu":         ".1.3.6.1.2.1.2.2.1.4",
+	"ifSpeed":       ".1.3.6.1.2.1.2.2.1.5",
+	"ifPhysAddress": ".1.3.6.1.2.1.2.2.1.6",
+	"ifAdminStatus": ".1.3.6.1.2.1.2.2.1.7",
+	"ifOperStatus":  ".1.3.6.1.2.1.2.2.1.8",
+	"ifLastChange":  ".1.3.6.1.2.1.2.2.1.9",
 	// HC counters
-	"ifInMulticastPkts":          "1.3.6.1.2.1.31.1.1.1.2",
-	"ifInBroadcastPkts":          "1.3.6.1.2.1.31.1.1.1.3",
-	"ifOutMulticastPkts":         "1.3.6.1.2.1.31.1.1.1.4",
-	"ifOutBroadcastPkts":         "1.3.6.1.2.1.31.1.1.1.5",
-	"ifHCInOctets":               "1.3.6.1.2.1.31.1.1.1.6",
-	"ifHCInUcastPkts":            "1.3.6.1.2.1.31.1.1.1.7",
-	"ifHCInMulticastPkts":        "1.3.6.1.2.1.31.1.1.1.8",
-	"ifHCInBroadcastPkts":        "1.3.6.1.2.1.31.1.1.1.9",
-	"ifHCOutOctets":              "1.3.6.1.2.1.31.1.1.1.10",
-	"ifHCOutUcastPkts":           "1.3.6.1.2.1.31.1.1.1.11",
-	"ifHCOutMulticastPkts":       "1.3.6.1.2.1.31.1.1.1.12",
-	"ifHCOutBroadcastPkts":       "1.3.6.1.2.1.31.1.1.1.13",
-	"ifHighSpeed":                "1.3.6.1.2.1.31.1.1.1.15",
-	"ifCounterDiscontinuityTime": "1.3.6.1.2.1.31.1.1.1.19",
+	"ifInMulticastPkts":          ".1.3.6.1.2.1.31.1.1.1.2",
+	"ifInBroadcastPkts":          ".1.3.6.1.2.1.31.1.1.1.3",
+	"ifOutMulticastPkts":         ".1.3.6.1.2.1.31.1.1.1.4",
+	"ifOutBroadcastPkts":         ".1.3.6.1.2.1.31.1.1.1.5",
+	"ifHCInOctets":               ".1.3.6.1.2.1.31.1.1.1.6",
+	"ifHCInUcastPkts":            ".1.3.6.1.2.1.31.1.1.1.7",
+	"ifHCInMulticastPkts":        ".1.3.6.1.2.1.31.1.1.1.8",
+	"ifHCInBroadcastPkts":        ".1.3.6.1.2.1.31.1.1.1.9",
+	"ifHCOutOctets":              ".1.3.6.1.2.1.31.1.1.1.10",
+	"ifHCOutUcastPkts":           ".1.3.6.1.2.1.31.1.1.1.11",
+	"ifHCOutMulticastPkts":       ".1.3.6.1.2.1.31.1.1.1.12",
+	"ifHCOutBroadcastPkts":       ".1.3.6.1.2.1.31.1.1.1.13",
+	"ifHighSpeed":                ".1.3.6.1.2.1.31.1.1.1.15",
+	"ifCounterDiscontinuityTime": ".1.3.6.1.2.1.31.1.1.1.19",
 
-	"ifInDiscards":  "1.3.6.1.2.1.2.2.1.13",
-	"ifInErrors":    "1.3.6.1.2.1.2.2.1.14",
-	"ifOutDiscards": "1.3.6.1.2.1.2.2.1.19",
-	"ifOutErrors":   "1.3.6.1.2.1.2.2.1.20",
+	"ifInDiscards":  ".1.3.6.1.2.1.2.2.1.13",
+	"ifInErrors":    ".1.3.6.1.2.1.2.2.1.14",
+	"ifOutDiscards": ".1.3.6.1.2.1.2.2.1.19",
+	"ifOutErrors":   ".1.3.6.1.2.1.2.2.1.20",
 }
 
 type Client struct {
-	client *snmpgo.SNMP
+	client *gosnmp.GoSNMP
 	logger *zap.Logger
 	device *models.Device
 }
@@ -71,42 +71,48 @@ func New(device *models.Device, logger *zap.Logger) *Client {
 		return nil
 	}
 
-	args := &snmpgo.SNMPArguments{
-		Network: *device.Transport,
-		Address: fmt.Sprintf("%s:%d", *device.Hostname, device.Port),
-		Timeout: 6 * time.Second,
-		Retries: 0,
+	g := &gosnmp.GoSNMP{
+		Port:                    161,
+		Retries:                 3,
+		Timeout:                 5 * time.Second,
+		Transport:               "udp",
+		Target:                  *device.Hostname,
+		UseUnconnectedUDPSocket: true,
+		MaxOids:                 30,
 	}
 
 	switch *device.SnmpVer {
 	case "1":
-		args.Version = snmpgo.V1
+		g.Version = gosnmp.Version1
 	case "v2c":
-		args.Version = snmpgo.V2c
+		g.Version = gosnmp.Version2c
 		if device.Community == nil {
 			logger.Error("bad community for v2c, must have a community")
 			return nil
 		}
-		args.Community = *device.Community
+		g.Community = *device.Community
 	case "v3":
 		if device.AuthLevel == nil || device.AuthName == nil || device.AuthPass == nil || device.CryptoPass == nil {
 			logger.Error("bad device", zap.Any("dev", device))
 			return nil
 		}
-		args.Version = snmpgo.V3
-		args.UserName = *device.AuthName
-		args.AuthPassword = *device.AuthPass
-		args.AuthProtocol = snmpgo.Sha
-		args.PrivPassword = *device.CryptoPass
-		args.PrivProtocol = snmpgo.Aes
+		g.Version = gosnmp.Version3
+		g.SecurityModel = gosnmp.UserSecurityModel
+		g.SecurityParameters = &gosnmp.UsmSecurityParameters{
+			UserName:                 *device.AuthName,
+			AuthenticationProtocol:   gosnmp.SHA,
+			AuthenticationPassphrase: *device.AuthPass,
+			PrivacyProtocol:          gosnmp.AES,
+			PrivacyPassphrase:        *device.CryptoPass,
+		}
 
 		switch *device.AuthLevel {
 		case "noAuthNoPriv":
-			args.SecurityLevel = snmpgo.NoAuthNoPriv
+			g.MsgFlags = gosnmp.NoAuthNoPriv
 		case "authNoPriv":
-			args.SecurityLevel = snmpgo.AuthNoPriv
+			g.MsgFlags = gosnmp.AuthNoPriv
 		case "authPriv":
-			args.SecurityLevel = snmpgo.AuthPriv
+			g.MsgFlags = gosnmp.AuthPriv
 		default:
 			panic("bad security")
 		}
@@ -115,13 +121,8 @@ func New(device *models.Device, logger *zap.Logger) *Client {
 		return nil
 	}
 
-	s, err := snmpgo.NewSNMP(*args)
-	if err != nil {
-		logger.Error("bad snmp", zap.Error(err), zap.Any("device", device.SysName))
-		return nil
-	}
 	return &Client{
-		client: s,
+		client: g,
 		logger: logger,
 		device: device,
 	}
@@ -132,8 +133,16 @@ func New(device *models.Device, logger *zap.Logger) *Client {
 // it'll set initial map parameters such us device hostname, sysname, etc.
 func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
+		c.logger.Info("set interfaces")
+		err := c.client.Connect()
+		if err != nil {
+			c.logger.Error("failed to connect", zap.Error(err))
+			return err
+		}
+
 		pdu, err := c.walkOid(StrNameToOidMap["ifIndex"])
 		if err != nil {
+			c.logger.Error("error walk", zap.Error(err))
 			return err
 		}
 
@@ -145,15 +154,16 @@ func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 		}
 		metricsMap.CountersMap = make(map[int]models.SnmpInterface)
 
-		for _, val := range pdu.VarBinds() {
-			if val.Variable.Type() != "Integer" {
+		for _, val := range pdu {
+			if val.Type != gosnmp.Integer {
 				// sanity check
+				c.logger.Error("not integer walk")
 				return ErrInterfaceIndexNotInteger
 			}
 
-			ifIndex, err := strconv.Atoi(val.Variable.String())
-			if err != nil {
-				return err
+			ifIndex, ok := val.Value.(int)
+			if !ok {
+				return ErrInterfaceIndexNotInteger
 			}
 			metricsMap.CountersMap[ifIndex] = models.SnmpInterface{}
 		}
@@ -165,6 +175,10 @@ func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 // SetCounters sets snmp counters for oids from 10 to 21
 func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
+		defer func() {
+			c.logger.Info("close the conn")
+			c.client.Conn.Close()
+		}()
 		pdu, err := c.walkOid(
 			StrNameToOidMap["ifDescr"],
 			StrNameToOidMap["ifPhysAddress"],
@@ -195,40 +209,56 @@ func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
 			StrNameToOidMap["ifOutErrors"],
 		)
 		if err != nil {
+			c.logger.Error("counters bad error", zap.Error(err), zap.Any("device", c.device.SysName))
 			return err
 		}
 
-		for _, val := range pdu.VarBinds() {
-			myoid := val.Oid.String()
+		for _, val := range pdu {
+			myoid := val.Name
 			indexpos := strings.LastIndex(myoid, ".")
 			index, _ := strconv.Atoi(myoid[indexpos+1:])
-			intVal, err := val.Variable.BigInt()
-			if err != nil {
-				return err
-			}
 			partsMyOid := strings.Split(myoid, ".")
 			origOID := strings.Join(partsMyOid[0:len(partsMyOid)-1], ".")
 
 			name := reverseMap(StrNameToOidMap)[origOID]
 			switch name {
 			case "ifPhysAddress":
-				metricsMap.SetMacAddress(intVal.String(), index)
+				v := ""
+				switch val.Type {
+				case gosnmp.OctetString:
+					bytes := val.Value.([]byte)
+					split := ""
+					for _, b := range bytes {
+						if v != "" {
+							split = ":"
+						}
+						v += fmt.Sprintf(split+"%x", b)
+					}
+				default:
+					v = fmt.Sprint(val.Value)
+				}
+				metricsMap.SetMacAddress(v, index)
 			case "ifAlias":
-				metricsMap.SetIfAlias(intVal.String(), index)
+				metricsMap.SetIfAlias(string(val.Value.([]byte)), index)
+			case "ifDescr":
+				metricsMap.SetIfName(string(val.Value.([]byte)), index)
 			case "ifAdminStatus":
+				intVal := gosnmp.ToBigInt(val.Value)
 				metricsMap.SetAdminStatus(intVal.Int64() == 1, index)
 			case "ifOperStatus":
+				intVal := gosnmp.ToBigInt(val.Value)
 				metricsMap.SetOperStatus(intVal.Int64() == 1, index)
 			case "ifSpeed":
+				intVal := gosnmp.ToBigInt(val.Value)
 				metricsMap.SetSpeed(intVal.Int64(), index)
 			case "ifMtu":
+				intVal := gosnmp.ToBigInt(val.Value)
 				metricsMap.SetMtu(intVal.Int64(), index)
 			default:
+				intVal := gosnmp.ToBigInt(val.Value)
 				metricsMap.SetCounters(intVal, index, name)
 			}
 		}
-		// it is safe to close the client here
-		c.client.Close()
 		return decorator(metricsMap)
 	}
 }

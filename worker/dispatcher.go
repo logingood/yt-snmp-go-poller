@@ -23,7 +23,7 @@ type Queue struct {
 
 func New(logger *zap.Logger, dbClient *sql.Client, interval time.Duration, processor snmp.DecorateFunc, eg *errgroup.Group, numWorkers, queueLength int) *Queue {
 	logger.Info("created new queue")
-	jobChan := make(chan *models.Device, queueLength)
+	jobChan := make(chan *models.Device)
 	return &Queue{
 		logger:     logger,
 		dbClient:   dbClient,
@@ -52,7 +52,7 @@ func (q *Queue) StartDispatcher(ctx context.Context) error {
 			q.logger.Info("found devices", zap.Int("devices", len(devices)))
 			for _, dev := range devices {
 				dev := dev
-				q.logger.Info("enqueue", zap.Any("device", dev.Hostname))
+				q.logger.Info("enqueue snmp worker", zap.Any("device", dev.SysName))
 				q.jobChan <- &dev
 			}
 		case <-ctx.Done():
@@ -68,6 +68,7 @@ func (q *Queue) StartWorkerPool(ctx context.Context) error {
 	for i := 0; i < q.numWorkers; i++ {
 		q.eg.Go(func() error {
 			for job := range q.jobChan {
+				job := job
 				if err := q.worker(ctx, job); err != nil {
 					return err
 				}
@@ -98,7 +99,6 @@ func (q *Queue) worker(ctx context.Context, job *models.Device) error {
 func (q *Queue) process(job *models.Device) error {
 	s := snmp.New(job, q.logger)
 	snmpMap := &models.SnmpInterfaceMetrics{}
-
 	poller := snmp.Compose(
 		// do something with the device
 		q.processor,
@@ -110,6 +110,5 @@ func (q *Queue) process(job *models.Device) error {
 	if err := poller(snmpMap); err != nil {
 		return err
 	}
-
 	return nil
 }

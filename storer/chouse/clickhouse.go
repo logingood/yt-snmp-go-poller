@@ -35,7 +35,7 @@ func New(logger *zap.Logger, conn driver.Conn, queueSize int, dbName, tableName 
 }
 
 func (c *ClickhouseClient) Write(metric *models.SnmpInterfaceMetrics) {
-	c.logger.Info("enqueue metric", zap.Any("hostname", metric.Hostname), zap.Any("device", metric.SysName))
+	c.logger.Info("enqueue metric to writ to clickhouse", zap.Any("hostname", metric.Hostname), zap.Any("device", metric.SysName))
 	c.enqueue(metric)
 	return
 }
@@ -49,10 +49,10 @@ func (c *ClickhouseClient) StartQueue(ctx context.Context, errGroup *errgroup.Gr
 		metrics := []*models.SnmpInterfaceMetrics{}
 		for j := range c.queue {
 
-			c.logger.Info("appending metric", zap.Any("hostname", j.Hostname), zap.Any("device", j.SysName))
+			c.logger.Info("appending metric to batch", zap.Any("hostname", j.Hostname), zap.Any("device", j.SysName))
 			metrics = append(metrics, j)
 			if len(metrics) == c.flushBatchSize {
-				c.logger.Info("insert time", zap.Any("metrics number", len(metrics)))
+				c.logger.Info("insert the batch", zap.Any("metrics number", len(metrics)))
 				if err := c.insert(metrics); err != nil {
 					c.logger.Error("error", zap.Error(err))
 					//return err
