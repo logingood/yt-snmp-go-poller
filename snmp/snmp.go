@@ -289,6 +289,8 @@ func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
 		if err := setCountersFromPDU(pdu, metricsMap.SetCounters); err != nil {
 			return err
 		}
+		// it is safe to close the client here
+		c.client.Close()
 		return decorator(metricsMap)
 	}
 }

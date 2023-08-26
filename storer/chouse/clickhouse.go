@@ -116,7 +116,7 @@ func (c *ClickhouseClient) insert(metrics []*models.SnmpInterfaceMetrics) error 
 				counters.Counters["ifHCOutMulticastPkts"].Uint64(),
 				counters.Counters["ifHCOutBroadcastPkts"].Uint64(),
 				counters.Counters["ifHighSpeed"].Uint64(),
-				counters.Counters["ifCounterDiscontinuityTime"].Int64(),
+				counters.Counters["ifCounterDiscontinuityTime"].Uint64(),
 				counters.Counters["ifInDiscards"].Int64(),
 				counters.Counters["ifInErrors"].Int64(),
 				counters.Counters["ifOutDiscards"].Int64(),
