@@ -123,7 +123,7 @@ func (c *Client) walkOid(oid string, otherOids ...string) (snmpgo.Pdu, error) {
 
 	pdu, err := c.client.GetBulkWalk(oids, 0, 3)
 	if err != nil {
-		c.logger.Error("bad response", zap.Error(err))
+		c.logger.Error("bad response", zap.Error(err), zap.Any("device", *c.device.SysName), zap.Any("oid", oid), zap.Any("other oids", otherOids))
 		return nil, err
 	}
 

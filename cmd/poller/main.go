@@ -72,7 +72,7 @@ func main() {
 	q := worker.New(logger, dbClient, getInterval(logger), func(snmpMap *models.SnmpInterfaceMetrics) error {
 		storer.Write(snmpMap)
 		return nil
-	}, workerGroup, getWorkersNum(logger), 100)
+	}, workerGroup, getWorkersNum(logger), 1000)
 	q.StartWorkerPool(wctx)
 
 	group, qctx := errgroup.WithContext(ctx)
@@ -108,7 +108,7 @@ func getInterval(logger *zap.Logger) time.Duration {
 	var interval time.Duration
 	intervalStr := os.Getenv("POLLING_INTERVAL_SECONDS")
 	if intervalStr == "" {
-		interval = time.Second * 5
+		interval = time.Minute * 1
 	} else {
 		intervalInt, err := strconv.Atoi(intervalStr)
 		if err != nil {

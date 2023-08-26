@@ -105,13 +105,6 @@ func (q *Queue) process(job *models.Device) error {
 
 		// adding snmp properties and counters
 		s.SetCounters,
-		s.SetIfName,
-		s.SetIfAlias,
-		s.SetMtu,
-		s.SetSpeed,
-		s.SetIfAdminStatus,
-		s.SetIfOperStatus,
-		s.SetMacAddress,
 		s.GetInterfacesMap, // always keep at the bottom
 	)
 	if err := poller(snmpMap); err != nil {

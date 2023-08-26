@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/k-sone/snmpgo"
@@ -73,8 +74,8 @@ func New(device *models.Device, logger *zap.Logger) *Client {
 	args := &snmpgo.SNMPArguments{
 		Network: *device.Transport,
 		Address: fmt.Sprintf("%s:%d", *device.Hostname, device.Port),
-		Timeout: 1 * time.Second,
-		Retries: 3,
+		Timeout: 6 * time.Second,
+		Retries: 0,
 	}
 
 	switch *device.SnmpVer {
@@ -116,7 +117,7 @@ func New(device *models.Device, logger *zap.Logger) *Client {
 
 	s, err := snmpgo.NewSNMP(*args)
 	if err != nil {
-		logger.Error("bad snmp", zap.Error(err))
+		logger.Error("bad snmp", zap.Error(err), zap.Any("device", device.SysName))
 		return nil
 	}
 	return &Client{
@@ -161,108 +162,18 @@ func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 	}
 }
 
-// SetIfName sets interface names for the snmp interfaces map
-func (c *Client) SetIfName(decorator DecorateFunc) DecorateFunc {
-	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(StrNameToOidMap["ifDescr"])
-		if err != nil {
-			return err
-		}
-		if err := setStringFromPDU(pdu, metricsMap.SetIfName); err != nil {
-			return err
-		}
-		return decorator(metricsMap)
-	}
-}
-
-// SetMacAddress sets interface mac for the snmp interfaces map
-func (c *Client) SetMacAddress(decorator DecorateFunc) DecorateFunc {
-	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(StrNameToOidMap["ifPhysAddress"])
-		if err != nil {
-			return err
-		}
-		if err := setStringFromPDU(pdu, metricsMap.SetMacAddress); err != nil {
-			return err
-		}
-		return decorator(metricsMap)
-	}
-}
-
-// SetIfAlias sets interface aliases for the snmp interfaces map
-func (c *Client) SetIfAlias(decorator DecorateFunc) DecorateFunc {
-	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(StrNameToOidMap["ifAlias"])
-		if err != nil {
-			return err
-		}
-		if err := setStringFromPDU(pdu, metricsMap.SetIfAlias); err != nil {
-			return err
-		}
-		return decorator(metricsMap)
-	}
-}
-
-// SetIfAdminStatus
-func (c *Client) SetIfAdminStatus(decorator DecorateFunc) DecorateFunc {
-	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(StrNameToOidMap["ifAdminStatus"])
-		if err != nil {
-			return err
-		}
-		if err := setBoolFromPDU(pdu, metricsMap.SetAdminStatus); err != nil {
-			return err
-		}
-		return decorator(metricsMap)
-	}
-}
-
-// SetIfOperStatus
-func (c *Client) SetIfOperStatus(decorator DecorateFunc) DecorateFunc {
-	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(StrNameToOidMap["ifOperStatus"])
-		if err != nil {
-			return err
-		}
-		if err := setBoolFromPDU(pdu, metricsMap.SetOperStatus); err != nil {
-			return err
-		}
-		return decorator(metricsMap)
-	}
-}
-
-// SetSpeed
-func (c *Client) SetSpeed(decorator DecorateFunc) DecorateFunc {
-	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(StrNameToOidMap["ifSpeed"])
-		if err != nil {
-			return err
-		}
-		if err := setInt64FromPDU(pdu, metricsMap.SetSpeed); err != nil {
-			return err
-		}
-		return decorator(metricsMap)
-	}
-}
-
-// SetMtu
-func (c *Client) SetMtu(decorator DecorateFunc) DecorateFunc {
-	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		pdu, err := c.walkOid(StrNameToOidMap["ifMtu"])
-		if err != nil {
-			return err
-		}
-		if err := setInt64FromPDU(pdu, metricsMap.SetMtu); err != nil {
-			return err
-		}
-		return decorator(metricsMap)
-	}
-}
-
 // SetCounters sets snmp counters for oids from 10 to 21
 func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
 		pdu, err := c.walkOid(
+			StrNameToOidMap["ifDescr"],
+			StrNameToOidMap["ifPhysAddress"],
+			StrNameToOidMap["ifAlias"],
+			StrNameToOidMap["ifAdminStatus"],
+			StrNameToOidMap["ifOperStatus"],
+			StrNameToOidMap["ifSpeed"],
+			StrNameToOidMap["ifMtu"],
+
 			StrNameToOidMap["ifInMulticastPkts"],
 			StrNameToOidMap["ifInBroadcastPkts"],
 			StrNameToOidMap["ifOutMulticastPkts"],
@@ -286,8 +197,35 @@ func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
 		if err != nil {
 			return err
 		}
-		if err := setCountersFromPDU(pdu, metricsMap.SetCounters); err != nil {
-			return err
+
+		for _, val := range pdu.VarBinds() {
+			myoid := val.Oid.String()
+			indexpos := strings.LastIndex(myoid, ".")
+			index, _ := strconv.Atoi(myoid[indexpos+1:])
+			intVal, err := val.Variable.BigInt()
+			if err != nil {
+				return err
+			}
+			partsMyOid := strings.Split(myoid, ".")
+			origOID := strings.Join(partsMyOid[0:len(partsMyOid)-1], ".")
+
+			name := reverseMap(StrNameToOidMap)[origOID]
+			switch name {
+			case "ifPhysAddress":
+				metricsMap.SetMacAddress(intVal.String(), index)
+			case "ifAlias":
+				metricsMap.SetIfAlias(intVal.String(), index)
+			case "ifAdminStatus":
+				metricsMap.SetAdminStatus(intVal.Int64() == 1, index)
+			case "ifOperStatus":
+				metricsMap.SetOperStatus(intVal.Int64() == 1, index)
+			case "ifSpeed":
+				metricsMap.SetSpeed(intVal.Int64(), index)
+			case "ifMtu":
+				metricsMap.SetMtu(intVal.Int64(), index)
+			default:
+				metricsMap.SetCounters(intVal, index, name)
+			}
 		}
 		// it is safe to close the client here
 		c.client.Close()
