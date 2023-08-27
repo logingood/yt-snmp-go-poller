@@ -68,10 +68,12 @@ func main() {
 	}
 	storer.StartQueue(sctx, storerGroup)
 
+	offset, max := getWorkerRangeAndOfset(logger)
+
 	workerGroup, wctx := errgroup.WithContext(ctx)
 	q := worker.New(logger, dbClient, getInterval(logger), func(snmpMap *models.SnmpInterfaceMetrics) error {
 		return storer.Insert([]*models.SnmpInterfaceMetrics{snmpMap})
-	}, workerGroup, getWorkersNum(logger), getWorkersNum(logger))
+	}, workerGroup, getWorkersNum(logger), getWorkersNum(logger), offset, max)
 	q.StartWorkerPool(wctx)
 
 	group, qctx := errgroup.WithContext(ctx)
@@ -119,4 +121,30 @@ func getInterval(logger *zap.Logger) time.Duration {
 	}
 
 	return interval
+}
+
+func getWorkerRangeAndOfset(logger *zap.Logger) (int, int) {
+	offset := 0
+	max := 1000
+
+	workerOffset := os.Getenv("WORKER_OFFSET")
+	if workerOffset != "" {
+		var err error
+		offset, err = strconv.Atoi(workerOffset)
+		if err != nil {
+			logger.Fatal("number of workers must be a number", zap.Any("WORKERS_OFFSET", workerOffset), zap.Error(err))
+			panic(err)
+		}
+	}
+	workerRange := os.Getenv("WORKER_RANGE")
+	if workerRange != "" {
+		var err error
+		max, err = strconv.Atoi(workerRange)
+		if err != nil {
+			logger.Fatal("number of workers must be a number", zap.Any("WORKERS_RANGE", workerRange), zap.Error(err))
+			panic(err)
+		}
+	}
+
+	return offset, max
 }

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/logingood/yt-snmp-go-poller/devices/sql"
@@ -12,26 +13,30 @@ import (
 )
 
 type Queue struct {
-	logger     *zap.Logger
-	dbClient   *sql.Client
-	jobChan    chan *models.Device
-	interval   time.Duration
-	processor  snmp.DecorateFunc
-	eg         *errgroup.Group
-	numWorkers int
+	logger       *zap.Logger
+	dbClient     *sql.Client
+	jobChan      chan *models.Device
+	interval     time.Duration
+	processor    snmp.DecorateFunc
+	eg           *errgroup.Group
+	numWorkers   int
+	workerOffset int
+	workerRange  int
 }
 
-func New(logger *zap.Logger, dbClient *sql.Client, interval time.Duration, processor snmp.DecorateFunc, eg *errgroup.Group, numWorkers, queueLength int) *Queue {
+func New(logger *zap.Logger, dbClient *sql.Client, interval time.Duration, processor snmp.DecorateFunc, eg *errgroup.Group, numWorkers, queueLength, workerOffset, workerRange int) *Queue {
 	logger.Info("created new queue")
 	jobChan := make(chan *models.Device, queueLength)
 	return &Queue{
-		logger:     logger,
-		dbClient:   dbClient,
-		jobChan:    jobChan,
-		interval:   interval,
-		processor:  processor,
-		numWorkers: numWorkers,
-		eg:         eg,
+		logger:       logger,
+		dbClient:     dbClient,
+		jobChan:      jobChan,
+		interval:     interval,
+		processor:    processor,
+		numWorkers:   numWorkers,
+		eg:           eg,
+		workerOffset: workerOffset,
+		workerRange:  workerRange,
 	}
 }
 
@@ -49,6 +54,8 @@ func (q *Queue) StartDispatcher(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			end := math.Min(float64(q.workerRange)+float64(q.workerOffset), float64(len(devices)))
+			devices = devices[q.workerOffset:int(end)]
 			q.logger.Info("found devices", zap.Int("devices", len(devices)))
 			for _, dev := range devices {
 				dev := dev
