@@ -53,6 +53,9 @@ var StrNameToOidMap = map[string]string{
 	"ifInErrors":    ".1.3.6.1.2.1.2.2.1.14",
 	"ifOutDiscards": ".1.3.6.1.2.1.2.2.1.19",
 	"ifOutErrors":   ".1.3.6.1.2.1.2.2.1.20",
+
+	// perhaps we want ports too
+	"lldpRemSysName": ".1.0.8802.1.1.2.1.4.1.1.9",
 }
 
 type Client struct {
@@ -133,7 +136,6 @@ func New(device *models.Device, logger *zap.Logger) *Client {
 // it'll set initial map parameters such us device hostname, sysname, etc.
 func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
-		c.logger.Info("set interfaces")
 		err := c.client.Connect()
 		if err != nil {
 			c.logger.Error("failed to connect", zap.Error(err))
@@ -152,6 +154,29 @@ func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 		if c.device != nil && c.device.SysName != nil {
 			metricsMap.SysName = *c.device.SysName
 		}
+		if c.device != nil && c.device.Hardware != nil {
+			metricsMap.Hardware = *c.device.Hardware
+		}
+		if c.device != nil && c.device.OS != nil {
+			metricsMap.OS = *c.device.OS
+		}
+		if c.device != nil && c.device.Serial != nil {
+			metricsMap.Serial = *c.device.Serial
+		}
+		if c.device != nil && c.device.UptimeSeconds != nil {
+			metricsMap.Uptime = *c.device.UptimeSeconds
+		}
+		if c.device != nil && c.device.Location != nil {
+			metricsMap.Location = *c.device.Location
+		}
+		if c.device != nil && c.device.SysDescr != nil {
+			metricsMap.SysDescr = *c.device.SysDescr
+		}
+		if c.device != nil && c.device.Lat != nil && c.device.Lng != nil {
+			metricsMap.Lat = *c.device.Lat
+			metricsMap.Lng = *c.device.Lng
+		}
+
 		metricsMap.CountersMap = make(map[int]models.SnmpInterface)
 
 		for _, val := range pdu {
@@ -207,6 +232,8 @@ func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
 			StrNameToOidMap["ifInErrors"],
 			StrNameToOidMap["ifOutDiscards"],
 			StrNameToOidMap["ifOutErrors"],
+
+			StrNameToOidMap["lldpRemSysName"],
 		)
 		if err != nil {
 			c.logger.Error("counters bad error", zap.Error(err), zap.Any("device", c.device.SysName))
@@ -220,7 +247,9 @@ func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
 			index, _ := strconv.Atoi(myoid[indexpos+1:])
 			partsMyOid := strings.Split(myoid, ".")
 			origOID := strings.Join(partsMyOid[0:len(partsMyOid)-1], ".")
-
+			if strings.Contains(origOID, StrNameToOidMap["lldpRemSysName"]) {
+				origOID = StrNameToOidMap["lldpRemSysName"]
+			}
 			name := reverseMap(StrNameToOidMap)[origOID]
 			switch name {
 			case "ifPhysAddress":
@@ -255,11 +284,14 @@ func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
 			case "ifMtu":
 				intVal := gosnmp.ToBigInt(val.Value)
 				metricsMap.SetMtu(intVal.Int64(), index)
+			case "lldpRemSysName":
+				metricsMap.SetNeighbour(string(val.Value.([]byte)), index)
 			default:
 				intVal := gosnmp.ToBigInt(val.Value)
 				metricsMap.SetCounters(intVal, index, name)
 			}
 		}
+
 		return decorator(metricsMap)
 	}
 }

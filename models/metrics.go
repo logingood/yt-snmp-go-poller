@@ -18,6 +18,7 @@ type SnmpInterface struct {
 	AdminStatus bool          `ch:"admin_status" json:"admin_status"` // 1.3.6.1.2.1.2.2.1.7
 	OperStatus  bool          `ch:"oper_status" json:"oper_status"`   // 1.3.6.1.2.1.2.2.1.8
 	LastChange  time.Duration `ch:"last_change" json:"last_change"`   // .9
+	Neighbour   string        `ch:"neighbour" json:"neighbour"`
 
 	// Counters will be from .10 to .21
 	Counters map[string]*big.Int `ch:"-" json:"counters"`
@@ -25,10 +26,25 @@ type SnmpInterface struct {
 
 type SnmpInterfaceMetrics struct {
 	Lock        sync.Mutex
-	CountersMap map[int]SnmpInterface
-	Time        int64
-	SysName     string
-	Hostname    string
+	CountersMap map[int]SnmpInterface `ch:"counters_map" json:"counters_map"`
+	Time        int64                 `ch:"time" json:"time"`
+	SysName     string                `ch:"sys_name" json:"sys_name"`
+	SysDescr    string                `ch:"sys_descr" json:"sys_descr"`
+	Hostname    string                `ch:"hostname" json:"hostname"`
+	Hardware    string                `ch:"hardware" json:"hardware"`
+	OS          string                `ch:"os" json:"os"`
+	Serial      string                `ch:"serial" json:"serial"`
+	ObjectID    string                `ch:"object_id" json:"object_id"`
+	Uptime      int64                 `ch:"uptime" json:"uptime"`
+	Location    string                `ch:"location" json:"location"`
+	Lat         float64               `ch:"lat" json:"lat"`
+	Lng         float64               `ch:"lng" json:"lng"`
+}
+
+func (s *SnmpInterfaceMetrics) SetNeighbour(val string, index int) {
+	updateValue := s.CountersMap[index]
+	updateValue.Neighbour = val
+	s.CountersMap[index] = updateValue
 }
 
 func (s *SnmpInterfaceMetrics) SetIfName(val string, index int) {

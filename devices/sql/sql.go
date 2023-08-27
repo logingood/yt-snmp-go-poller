@@ -9,7 +9,26 @@ import (
 	"go.uber.org/zap"
 )
 
-const ListQuery = `SELECT device_id, hostname, sysName, community, authlevel, authname, authpass, authalgo, cryptopass, cryptoalgo, snmpver, port, transport,  bgpLocalAs, sysObjectID, sysDescr, sysContact, version, hardware, features, os, status from devices;`
+const ListQuery = `SELECT
+	device_id,
+	hostname,
+	sysName,
+	community,
+	authlevel,
+	authname, authpass, authalgo, cryptopass, cryptoalgo,
+	snmpver, port, transport,  bgpLocalAs, sysObjectID,
+	sysDescr, sysContact, version, hardware, features, os,
+	status, serial,uptime,
+	(
+		SELECT location FROM locations WHERE id=devices.location_id
+	) AS location,
+	(
+		SELECT lat FROM locations WHERE id=devices.location_id
+	) AS lat,
+	(
+		SELECT lng FROM locations WHERE id=devices.location_id
+	) AS lng
+	FROM devices ORDER BY device_id`
 
 type Client struct {
 	db     *sqlx.DB
