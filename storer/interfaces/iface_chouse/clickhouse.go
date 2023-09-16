@@ -1,4 +1,4 @@
-package chouse
+package iface_chouse
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/logingood/yt-snmp-go-poller/config"
 	"github.com/logingood/yt-snmp-go-poller/models"
 	"github.com/logingood/yt-snmp-go-poller/snmp"
 	"go.uber.org/zap"
@@ -23,15 +24,15 @@ type ClickhouseClient struct {
 	logger         *zap.Logger
 }
 
-func New(logger *zap.Logger, conn driver.Conn, queueSize int, dbName, tableName string, flushBatchSize int,
+func New(logger *zap.Logger, conn driver.Conn, cfg *config.FromEnv,
 ) *ClickhouseClient {
 	return &ClickhouseClient{
 		logger:         logger,
 		conn:           conn,
-		queue:          make(chan *models.SnmpInterfaceMetrics, queueSize),
-		dbName:         dbName,
-		tableName:      tableName,
-		flushBatchSize: flushBatchSize,
+		queue:          make(chan *models.SnmpInterfaceMetrics, cfg.ClickhouseQueueLength),
+		dbName:         cfg.ClickhouseDb,
+		tableName:      cfg.ClickhouseInterfacesTableName,
+		flushBatchSize: cfg.ClickhouseFlushFrequency,
 	}
 }
 
@@ -96,7 +97,8 @@ func (c *ClickhouseClient) Insert(metrics []*models.SnmpInterfaceMetrics) error 
 	for _, metric := range metrics {
 		// TODO convert IP to []byte
 
-		for _, counters := range metric.CountersMap {
+		for idx, counters := range metric.CountersMap {
+			c.logger.Debug("appending counters", zap.Any("counters", idx))
 
 			for k := range snmp.StrNameToOidMap {
 				if counters.Counters == nil {
@@ -156,11 +158,12 @@ func (c *ClickhouseClient) Insert(metrics []*models.SnmpInterfaceMetrics) error 
 	if err := batch.Send(); err != nil {
 		return err
 	}
-	c.logger.Info("sent successfully", zap.Int("metrics", len(metrics)))
+	c.logger.Info("flushed successfully", zap.Int("metrics", len(metrics)))
 	return nil
 }
 
 func (c *ClickhouseClient) InitDb(ctx context.Context) error {
+	c.logger.Debug("create db", zap.String("db_name", c.dbName), zap.String("table_name", c.tableName))
 	stm := fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s.%s (
 		time Int64,
@@ -175,7 +178,6 @@ func (c *ClickhouseClient) InitDb(ctx context.Context) error {
 		location VARCHAR(255),
 		lat Float64,
 		lng Float64,
-
 		neighbour VARCHAR(255),
 		if_alias VARCHAR(255),
 		if_name VARCHAR(255),

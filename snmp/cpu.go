@@ -1,7 +1,6 @@
 package snmp
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,129 +11,14 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	ifTableOid   = "1.3.6.1.2.1.2.2.1.1"
-	ifTableAlias = "1.3.6.1.2.1.2.2.1.2"
-)
-
-var (
-	ErrInterfaceIndexNotInteger = errors.New("interface index can not be non integer")
-	ErrExpectOctetString        = errors.New("this value must be octet string")
-)
-
-var StrNameToOidMap = map[string]string{
-	"ifAlias":       ".1.3.6.1.2.1.31.1.1.1.18",
-	"ifIndex":       ".1.3.6.1.2.1.2.2.1.1",
-	"ifDescr":       ".1.3.6.1.2.1.2.2.1.2",
-	"ifType":        ".1.3.6.1.2.1.2.2.1.3",
-	"ifMtu":         ".1.3.6.1.2.1.2.2.1.4",
-	"ifSpeed":       ".1.3.6.1.2.1.2.2.1.5",
-	"ifPhysAddress": ".1.3.6.1.2.1.2.2.1.6",
-	"ifAdminStatus": ".1.3.6.1.2.1.2.2.1.7",
-	"ifOperStatus":  ".1.3.6.1.2.1.2.2.1.8",
-	"ifLastChange":  ".1.3.6.1.2.1.2.2.1.9",
-	// HC counters
-	"ifInMulticastPkts":          ".1.3.6.1.2.1.31.1.1.1.2",
-	"ifInBroadcastPkts":          ".1.3.6.1.2.1.31.1.1.1.3",
-	"ifOutMulticastPkts":         ".1.3.6.1.2.1.31.1.1.1.4",
-	"ifOutBroadcastPkts":         ".1.3.6.1.2.1.31.1.1.1.5",
-	"ifHCInOctets":               ".1.3.6.1.2.1.31.1.1.1.6",
-	"ifHCInUcastPkts":            ".1.3.6.1.2.1.31.1.1.1.7",
-	"ifHCInMulticastPkts":        ".1.3.6.1.2.1.31.1.1.1.8",
-	"ifHCInBroadcastPkts":        ".1.3.6.1.2.1.31.1.1.1.9",
-	"ifHCOutOctets":              ".1.3.6.1.2.1.31.1.1.1.10",
-	"ifHCOutUcastPkts":           ".1.3.6.1.2.1.31.1.1.1.11",
-	"ifHCOutMulticastPkts":       ".1.3.6.1.2.1.31.1.1.1.12",
-	"ifHCOutBroadcastPkts":       ".1.3.6.1.2.1.31.1.1.1.13",
-	"ifHighSpeed":                ".1.3.6.1.2.1.31.1.1.1.15",
-	"ifCounterDiscontinuityTime": ".1.3.6.1.2.1.31.1.1.1.19",
-
-	"ifInDiscards":  ".1.3.6.1.2.1.2.2.1.13",
-	"ifInErrors":    ".1.3.6.1.2.1.2.2.1.14",
-	"ifOutDiscards": ".1.3.6.1.2.1.2.2.1.19",
-	"ifOutErrors":   ".1.3.6.1.2.1.2.2.1.20",
-
-	// perhaps we want ports too
-	"lldpRemSysName": ".1.0.8802.1.1.2.1.4.1.1.9",
-}
-
-type Client struct {
-	client *gosnmp.GoSNMP
-	logger *zap.Logger
-	device *models.Device
-}
-
-func New(device *models.Device, logger *zap.Logger) *Client {
-	if device.Hostname == nil {
-		logger.Error("bad address")
-		return nil
-	}
-	if device.SnmpVer == nil {
-		logger.Error("bad version")
-		return nil
-	}
-
-	g := &gosnmp.GoSNMP{
-		Port:                    161,
-		Retries:                 3,
-		Timeout:                 5 * time.Second,
-		Transport:               "udp",
-		Target:                  *device.Hostname,
-		UseUnconnectedUDPSocket: true,
-		MaxOids:                 30,
-	}
-
-	switch *device.SnmpVer {
-	case "1":
-		g.Version = gosnmp.Version1
-	case "v2c":
-		g.Version = gosnmp.Version2c
-		if device.Community == nil {
-			logger.Error("bad community for v2c, must have a community")
-			return nil
-		}
-		g.Community = *device.Community
-	case "v3":
-		if device.AuthLevel == nil || device.AuthName == nil || device.AuthPass == nil || device.CryptoPass == nil {
-			logger.Error("bad device", zap.Any("dev", device))
-			return nil
-		}
-		g.Version = gosnmp.Version3
-		g.SecurityModel = gosnmp.UserSecurityModel
-		g.SecurityParameters = &gosnmp.UsmSecurityParameters{
-			UserName:                 *device.AuthName,
-			AuthenticationProtocol:   gosnmp.SHA,
-			AuthenticationPassphrase: *device.AuthPass,
-			PrivacyProtocol:          gosnmp.AES,
-			PrivacyPassphrase:        *device.CryptoPass,
-		}
-
-		switch *device.AuthLevel {
-		case "noAuthNoPriv":
-			g.MsgFlags = gosnmp.NoAuthNoPriv
-		case "authNoPriv":
-			g.MsgFlags = gosnmp.AuthNoPriv
-		case "authPriv":
-			g.MsgFlags = gosnmp.AuthPriv
-		default:
-			panic("bad security")
-		}
-	default:
-		logger.Error("bad prootcol")
-		return nil
-	}
-
-	return &Client{
-		client: g,
-		logger: logger,
-		device: device,
-	}
+var CpuOidMap = map[string]string{
+	"cpu": "1.3.6.1.2.1.25.3.3.1.2",
 }
 
 // GetInterfacesMap builds an interface map setting correct indexes. This
 // closure should be called the last if you use composer/middleware style function.
 // it'll set initial map parameters such us device hostname, sysname, etc.
-func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
+func (c *Client) GetCpuMap(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
 		err := c.client.Connect()
 		if err != nil {
@@ -142,7 +26,7 @@ func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 			return err
 		}
 
-		pdu, err := c.walkOid(StrNameToOidMap["ifIndex"])
+		pdu, err := c.walkOid(CpuOidMap["cpu"])
 		if err != nil {
 			c.logger.Error("error walk", zap.Error(err))
 			return err
@@ -197,8 +81,8 @@ func (c *Client) GetInterfacesMap(decorator DecorateFunc) DecorateFunc {
 	}
 }
 
-// SetCounters sets snmp counters for oids from 10 to 21
-func (c *Client) SetCounters(decorator DecorateFunc) DecorateFunc {
+// SetCpuCounters sets cpu snmp counters
+func (c *Client) SetCpuCounters(decorator DecorateFunc) DecorateFunc {
 	return func(metricsMap *models.SnmpInterfaceMetrics) error {
 		defer func() {
 			c.logger.Info("close the conn")

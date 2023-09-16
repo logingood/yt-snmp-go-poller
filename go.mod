@@ -7,7 +7,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gosnmp/gosnmp v1.35.0
 	github.com/jmoiron/sqlx v1.3.5
-	github.com/k-sone/snmpgo v3.2.0+incompatible
+	github.com/sethvargo/go-envconfig v0.9.0
 	go.uber.org/zap v1.25.0
 	golang.org/x/sync v0.3.0
 )
@@ -15,7 +15,6 @@ require (
 require (
 	github.com/ClickHouse/ch-go v0.58.2 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
-	github.com/geoffgarside/ber v1.1.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.6.1 // indirect
 	github.com/google/uuid v1.3.0 // indirect

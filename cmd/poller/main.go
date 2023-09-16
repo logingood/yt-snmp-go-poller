@@ -4,17 +4,20 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+	"github.com/logingood/yt-snmp-go-poller/config"
 	"github.com/logingood/yt-snmp-go-poller/devices/sql"
 	"github.com/logingood/yt-snmp-go-poller/internal/lgr"
 	"github.com/logingood/yt-snmp-go-poller/models"
-	"github.com/logingood/yt-snmp-go-poller/storer/chouse"
+	"github.com/logingood/yt-snmp-go-poller/storer/interfaces/iface_chouse"
 	"github.com/logingood/yt-snmp-go-poller/worker"
+	"github.com/sethvargo/go-envconfig"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -22,14 +25,31 @@ import (
 func main() {
 	logger := lgr.InitializeLogger()
 
-	dbUser := os.Getenv("DB_USERNAME")
-	dbPass := os.Getenv("DB_PASSWORD")
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbName := os.Getenv("DB_NAME")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var cfg config.FromEnv
+	if err := envconfig.Process(ctx, &cfg); err != nil {
+		logger.Fatal("cannot read config", zap.Error(err))
+		os.Exit(1)
+	}
 
-	connString := fmt.Sprintf("%s:%s@(%s:%s)/%s", dbUser, dbPass, dbHost, dbPort, dbName)
-	db, err := sqlx.Connect("mysql", connString)
+	// handle ctrl + c
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	defer func() {
+		signal.Stop(c)
+		cancel()
+	}()
+
+	go func() {
+		select {
+		case <-c:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
+	db, err := sqlx.Connect("mysql", getConnStringFromCfg(&cfg))
 	if err != nil {
 		logger.Error("error create mysql conn", zap.Error(err))
 		os.Exit(1)
@@ -43,28 +63,13 @@ func main() {
 
 	dbClient := sql.New(db, logger)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	clickDbName := os.Getenv("CLICKHOUSE_DB")
-	clickTableName := os.Getenv("CLICKHOUSE_TABLENAME")
-
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%s", os.Getenv("CLICKHOUSE_ADDR"), os.Getenv("CLICKHOUSE_PORT"))},
-		Auth: clickhouse.Auth{
-			Database: clickDbName,
-			Username: os.Getenv("CLICKHOUSE_USERNAME"),
-			Password: os.Getenv("CLICKHOUSE_PASSWORD"),
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-	})
+	ifaceConn, err := clickhouse.Open(getClickHouseConn(&cfg))
 
 	storerGroup, sctx := errgroup.WithContext(ctx)
-	storer := chouse.New(logger, conn, 100, clickDbName, clickTableName, 1)
+	storer := iface_chouse.New(logger, ifaceConn, &cfg)
 	if err := storer.InitDb(sctx); err != nil {
 		logger.Error("error init db", zap.Error(err))
+		os.Exit(1)
 	}
 	storer.StartQueue(sctx, storerGroup)
 
@@ -147,4 +152,24 @@ func getWorkerRangeAndOfset(logger *zap.Logger) (int, int) {
 	}
 
 	return offset, max
+}
+
+func getConnStringFromCfg(cfg *config.FromEnv) string {
+	connString := fmt.Sprintf("%s:%s@(%s:%s)/%s", cfg.DbUsername, cfg.DbPassword, cfg.DbHost, cfg.DbPort, cfg.DbName)
+
+	return connString
+}
+
+func getClickHouseConn(cfg *config.FromEnv) *clickhouse.Options {
+	return &clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%s", cfg.ClickhouseAddr, cfg.ClickhousePort)},
+		Auth: clickhouse.Auth{
+			Database: cfg.ClickhouseDb,
+			Username: cfg.ClickhouseUsername,
+			Password: cfg.ClickhousePassword,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+	}
 }
